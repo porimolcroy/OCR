@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>পাওয়ার OCR – বাংলা ও ইংরেজি</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1c2333;--mut:#6b7488;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--bd:#dde3ef}
+  @media (prefers-color-scheme:dark){:root{--bg:#10141f;--card:#192031;--ink:#e8ecf5;--mut:#93a0b8;--bd:#2a3550}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans Bengali","Nirmala UI","Kalpurush",system-ui,sans-serif;line-height:1.6}
+  .wrap{max-width:980px;margin:0 auto;padding:20px}
+  h1{margin:6px 0 2px;font-size:26px}
+  .sub{color:var(--mut);margin:0 0 16px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+  #drop{border:2px dashed var(--bd);border-radius:14px;padding:34px 16px;text-align:center;cursor:pointer;transition:.15s}
+  #drop.over{border-color:var(--pri);background:rgba(37,99,235,.07)}
+  #drop b{font-size:18px}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:12px}
+  label{font-size:13px;color:var(--mut);display:block;margin-bottom:3px}
+  select,input[type=number],input[type=text]{padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+  button{padding:9px 16px;border:0;border-radius:9px;background:var(--pri);color:#fff;font:inherit;cursor:pointer}
+  button.sec{background:transparent;color:var(--ink);border:1px solid var(--bd)}
+  button.stop{background:var(--bad)}
+  button:disabled{opacity:.5;cursor:default}
+  .chk{display:flex;align-items:center;gap:6px;font-size:14px;padding-bottom:8px}
+  .files{margin-top:10px;font-size:14px;color:var(--mut);word-break:break-all}
+  .bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden;margin:8px 0}
+  .bar i{display:block;height:100%;width:0;background:var(--pri);transition:width .2s}
+  .head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+  .name{font-weight:600;word-break:break-all}
+  .st{font-size:13px;color:var(--mut)}
+  .st.ok{color:var(--ok)} .st.err{color:var(--bad)}
+  textarea{width:100%;min-height:220px;margin-top:8px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--ink);font:16px/1.7 "Noto Sans Bengali","Nirmala UI",system-ui,sans-serif;resize:vertical}
+  .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .hide{display:none}
+  details{font-size:14px;color:var(--mut)}
+  details summary{cursor:pointer;color:var(--ink)}
+  details li{margin:3px 0}
+  #cropcv{max-width:100%;touch-action:none;cursor:crosshair;border:1px solid var(--bd);border-radius:8px;display:block}
+  textarea.fix{min-height:160px;border-color:var(--ok)}
+  img.prev{max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--bd);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>পাওয়ার OCR</h1>
+  <p class="sub">ছবি বা PDF থেকে বাংলা ও ইংরেজি লেখা বের করুন। ছবি আপনার ব্রাউজারেই প্রসেস হয়, কোথাও আপলোড হয় না।</p>
+
+  <div class="card">
+    <div id="drop"><b>ফাইল এখানে ছেড়ে দিন</b><br><span class="sub">অথবা ক্লিক করে বাছাই করুন (ছবি / PDF, একাধিক চলবে)। Ctrl+V দিয়ে স্ক্রিনশট পেস্টও করা যায়।</span></div>
+    <input id="pick" type="file" accept="image/*,.pdf,application/pdf" multiple class="hide">
+    <div class="files" id="flist">কোনো ফাইল বাছাই করা হয়নি</div>
+
+    <div class="row">
+      <div><label>ভাষা</label>
+        <select id="lang">
+          <option value="ben">শুধু বাংলা (ভুল কম)</option>
+          <option value="ben+eng">বাংলা + ইংরেজি</option>
+          <option value="eng">শুধু ইংরেজি</option>
+        </select></div>
+      <div><label>ভাষা মডেল</label>
+        <select id="quality">
+          <option value="best">সেরা মান (বড় ডাউনলোড)</option>
+          <option value="fast">দ্রুত (ছোট ডাউনলোড)</option>
+        </select></div>
+      <div><label>লেআউট</label>
+        <select id="psm">
+          <option value="3">অটো (সাধারণ পাতা)</option>
+          <option value="4">একাধিক কলাম</option>
+          <option value="6">একটি টেক্সট ব্লক</option>
+          <option value="7">এক লাইন</option>
+        </select></div>
+      <div><label>ছবি পরিষ্কার করা</label>
+        <select id="mode">
+          <option value="auto">অটো (দরকারে দুই পদ্ধতি)</option>
+          <option value="clean">কন্ট্রাস্ট ঠিক করা</option>
+          <option value="binary">সাদা-কালো থ্রেশহোল্ড</option>
+          <option value="none">কিছুই না (আসল ছবি)</option>
+        </select></div>
+      <div><label>PDF মান (DPI)</label><input id="dpi" type="number" value="300" min="150" max="450" step="50" style="width:90px"></div>
+      <label class="chk"><input id="deskew" type="checkbox" checked> বাঁকা ছবি সোজা করা</label>
+      <label class="chk"><input id="nolatin" type="checkbox" checked> ইংরেজি অক্ষর বন্ধ (শুধু বাংলা লেখায়)</label>
+    </div>
+    <div class="row">
+      <button id="cropBtn" class="sec" disabled>① লেখার অংশ বেছে নিন (ক্রপ)</button>
+      <button id="cropClr" class="sec hide">ক্রপ সরান</button>
+      <span class="st" id="cropst">ব্রাউজার ট্যাব, মেনু বা বিজ্ঞাপন বাদ দিলে ভুল অনেক কমে</span>
+    </div>
+    <div id="cropbox" class="hide" style="margin-top:10px"><canvas id="cropcv"></canvas></div>
+    <div class="row">
+      <button id="go" disabled>OCR শুরু করুন</button>
+      <button id="stop" class="stop hide">বন্ধ করুন</button>
+      <button id="clr" class="sec">মুছুন</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>AI দিয়ে বানান শুধরানো (ঐচ্ছিক – Ollama লাগবে)</summary>
+      <div class="row">
+        <div><label>Ollama ঠিকানা</label><input id="ollamaUrl" type="text" value="http://localhost:11434" style="width:230px"></div>
+        <div><label>মডেলের নাম</label><input id="ollamaModel" type="text" list="olist" placeholder="যেমন qwen2.5:7b" style="width:200px"><datalist id="olist"></datalist></div>
+      </div>
+      <p>ফলাফলের নিচে "AI দিয়ে বানান শুধরান" বাটন আসবে। মূল OCR লেখা অপরিবর্তিত থাকে, শুধরানো লেখা আলাদা বক্সে আসে। ফাইল থেকে সরাসরি খোলা পেজকে Ollama-র সাথে কথা বলতে দিতে Ollama চালানোর আগে <code>OLLAMA_ORIGINS=*</code> সেট করতে হবে। AI কখনও সঠিক শব্দও বদলে ফেলতে পারে, তাই মিলিয়ে দেখে নিন।</p>
+    </details>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="card hide" id="all">
+    <div class="acts">
+      <button id="allTxt">সব টেক্সট (.txt)</button>
+      <button id="allDoc">Word ফাইল (.doc)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>ভালো ফলাফলের টিপস</summary>
+      <ul>
+        <li>সবচেয়ে বড় উন্নতি আসে "ক্রপ" থেকে: শুধু লেখার অংশ বেছে নিন, স্ক্রিনশটের ট্যাব/মেনু/টাস্কবার বাদ দিন।</li>
+        <li>বাংলা লেখায় ভাষা "শুধু বাংলা" ও "ইংরেজি অক্ষর বন্ধ" রাখুন, নইলে কঠিন শব্দ ইংরেজি আবর্জনা (যেমন PIR, Gi) হয়ে যায়।</li>
+        <li>প্রথমবার ভাষা ডেটা নামাতে ইন্টারনেট ও কিছুটা সময় লাগে। এরপর ব্রাউজার সেটা জমা রাখে।</li>
+        <li>স্ক্যান বা ছবি যত পরিষ্কার ও আলো সমান, ফলাফল তত ভালো। ছায়া থাকলে "সাদা-কালো থ্রেশহোল্ড" চেষ্টা করুন।</li>
+        <li>বইয়ের একাধিক কলাম হলে লেআউট "একাধিক কলাম" দিন।</li>
+        <li>ঝাপসা PDF হলে DPI ৪০০ করুন, তবে সময় বেশি লাগবে।</li>
+        <li>ফলাফল নিচের বক্সেই এডিট করে তারপর কপি বা সেভ করতে পারবেন।</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const LANGPATH = {
+  best: 'https://cdn.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0_best',
+  fast: 'https://cdn.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0_fast'
+};
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+let files = [], worker = null, workerKey = '', onLog = () => {}, cancel = false;
+
+/* ---------- ফাইল বাছাই ---------- */
+function setFiles(list) {
+  files = [...list];
+  $('#flist').textContent = files.length ? files.map(f => f.name).join(' • ') : 'কোনো ফাইল বাছাই করা হয়নি';
+  $('#go').disabled = !files.length;
+  $('#cropBtn').disabled = !files.length;
+  crop = null; $('#cropClr').classList.add('hide'); $('#cropbox').classList.add('hide');
+}
+$('#drop').onclick = () => $('#pick').click();
+$('#pick').onchange = e => setFiles(e.target.files);
+['dragover', 'dragenter'].forEach(ev => $('#drop').addEventListener(ev, e => { e.preventDefault(); $('#drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => $('#drop').addEventListener(ev, e => { e.preventDefault(); $('#drop').classList.remove('over'); }));
+$('#drop').addEventListener('drop', e => setFiles(e.dataTransfer.files));
+document.addEventListener('paste', e => {
+  const fl = [...(e.clipboardData?.files || [])];
+  if (fl.length) setFiles(fl.map((f, i) => f.name && f.name !== 'image.png' ? f : new File([f], 'পেস্ট-করা-ছবি-' + (i + 1) + '.png', { type: f.type })));
+});
+$('#clr').onclick = () => { setFiles([]); $('#results').innerHTML = ''; $('#all').classList.add('hide'); $('#pick').value = ''; };
+$('#stop').onclick = () => { cancel = true; $('#stop').disabled = true; };
+
+/* ---------- ক্রপ ---------- */
+async function previewCanvas(file) {
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({ scale: 1.5 });
+    const cv = newCanvas(Math.round(vp.width), Math.round(vp.height));
+    const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+    await page.render({ canvasContext: cx, viewport: vp }).promise;
+    return cv;
+  }
+  const bmp = await createImageBitmap(file);
+  const cv = newCanvas(bmp.width, bmp.height);
+  cv.getContext('2d').drawImage(bmp, 0, 0);
+  return cv;
+}
+$('#cropBtn').onclick = async () => {
+  if (!files.length) return;
+  $('#cropst').textContent = 'প্রিভিউ তৈরি হচ্ছে...';
+  let src;
+  try { src = await previewCanvas(files[0]); } catch (e) { $('#cropst').textContent = 'প্রিভিউ হয়নি: ' + e.message; return; }
+  const cv = $('#cropcv'), s = Math.min(1, 900 / src.width);
+  cv.width = Math.round(src.width * s); cv.height = Math.round(src.height * s);
+  $('#cropbox').classList.remove('hide');
+  $('#cropst').textContent = 'মাউস টেনে শুধু লেখার অংশ ঘিরে দিন (প্রথম ফাইলের প্রথম পাতা, বাকি সব পাতায়ও একই অংশ কাটা হবে)';
+  const cx = cv.getContext('2d');
+  let sel = null, start = null;
+  const draw = () => {
+    cx.drawImage(src, 0, 0, cv.width, cv.height);
+    if (!sel) return;
+    cx.fillStyle = 'rgba(0,0,0,.4)';
+    cx.fillRect(0, 0, cv.width, sel.y);
+    cx.fillRect(0, sel.y + sel.h, cv.width, cv.height - sel.y - sel.h);
+    cx.fillRect(0, sel.y, sel.x, sel.h);
+    cx.fillRect(sel.x + sel.w, sel.y, cv.width - sel.x - sel.w, sel.h);
+    cx.strokeStyle = '#2563eb'; cx.lineWidth = 2; cx.strokeRect(sel.x, sel.y, sel.w, sel.h);
+  };
+  const pos = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; };
+  cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); start = pos(e); sel = { x: start.x, y: start.y, w: 0, h: 0 }; };
+  cv.onpointermove = e => {
+    if (!start) return;
+    const p = pos(e);
+    sel = { x: Math.max(0, Math.min(start.x, p.x)), y: Math.max(0, Math.min(start.y, p.y)),
+            w: Math.min(cv.width, Math.abs(p.x - start.x)), h: Math.min(cv.height, Math.abs(p.y - start.y)) };
+    draw();
+  };
+  cv.onpointerup = () => {
+    start = null;
+    if (sel && sel.w > 10 && sel.h > 10) {
+      crop = { x: sel.x / cv.width, y: sel.y / cv.height, w: sel.w / cv.width, h: sel.h / cv.height };
+      $('#cropst').textContent = 'ক্রপ ঠিক হয়েছে ✔ এখন "OCR শুরু করুন" চাপুন';
+      $('#cropClr').classList.remove('hide');
+    } else { sel = null; draw(); }
+  };
+  draw();
+};
+$('#cropClr').onclick = () => { crop = null; $('#cropbox').classList.add('hide'); $('#cropClr').classList.add('hide'); $('#cropst').textContent = 'ক্রপ সরানো হয়েছে, পুরো ছবি পড়া হবে'; };
+
+/* ---------- ইমেজ প্রিপ্রসেসিং ---------- */
+function newCanvas(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
+}
+/* লেখার লাইনের উচ্চতা মেপে ছবির আকার ঠিক করা (OCR-এর জন্য ~৩২px সবচেয়ে ভালো) */
+function inkRun(src) {
+  const g = grayOf(src), w = src.width, h = src.height, th = otsu(g);
+  const minInk = Math.max(2, w * 0.002), runs = [];
+  let run = 0;
+  for (let y = 0; y < h; y++) {
+    let n = 0; const o = y * w;
+    for (let x = 0; x < w; x++) if (g[o + x] < th) n++;
+    if (n > minInk) run++; else { if (run) runs.push(run); run = 0; }
+  }
+  if (run) runs.push(run);
+  const good = runs.filter(r => r >= 3 && r < h * 0.5).sort((a, b) => a - b);
+  return good.length >= 3 ? good[good.length >> 1] : null;
+}
+function scaled(src) {
+  const h0 = inkRun(src);
+  let s;
+  if (h0) s = Math.min(3, Math.max(0.5, 32 / h0));
+  else s = Math.min(2.5, Math.max(1, 1600 / Math.max(src.width, src.height)));
+  const longest = Math.max(src.width, src.height) * s;
+  if (longest > 4500) s *= 4500 / longest;
+  const c = newCanvas(Math.round(src.width * s), Math.round(src.height * s));
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+function grayOf(c) {
+  const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height).data;
+  const g = new Uint8ClampedArray(c.width * c.height);
+  for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+  return g;
+}
+function canvasOfGray(g, w, h) {
+  const c = newCanvas(w, h), x = c.getContext('2d');
+  const id = x.createImageData(w, h), d = id.data;
+  for (let i = 0, j = 0; j < g.length; j++, i += 4) { d[i] = d[i + 1] = d[i + 2] = g[j]; d[i + 3] = 255; }
+  x.putImageData(id, 0, 0);
+  return c;
+}
+function otsu(g) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < g.length; i++) hist[g[i]]++;
+  let total = g.length, sum = 0;
+  for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, max = 0, th = 127;
+  for (let i = 0; i < 256; i++) {
+    wB += hist[i]; if (!wB) continue;
+    const wF = total - wB; if (!wF) break;
+    sB += i * hist[i];
+    const mB = sB / wB, mF = (sum - sB) / wF;
+    const v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > max) { max = v; th = i; }
+  }
+  return th;
+}
+function findSkew(g, w, h) {
+  const f = Math.max(1, Math.floor(Math.max(w, h) / 700));
+  const th = otsu(g), xs = [], ys = [];
+  for (let y = 0; y < h; y += f) for (let x = 0; x < w; x += f) if (g[y * w + x] < th) { xs.push(x / f); ys.push(y / f); }
+  if (xs.length < 500) return 0;
+  const H = Math.ceil(Math.hypot(w, h) / f) + 4, off = H / 2, hist = new Float64Array(H);
+  let best = 0, bs = -1;
+  for (let a = -5; a <= 5.001; a += 0.5) {
+    hist.fill(0);
+    const r = a * Math.PI / 180, sn = Math.sin(r), cs = Math.cos(r);
+    for (let i = 0; i < xs.length; i++) {
+      const yy = Math.round(ys[i] * cs - xs[i] * sn + off);
+      if (yy >= 0 && yy < H) hist[yy]++;
+    }
+    let s = 0; for (let k = 0; k < H; k++) s += hist[k] * hist[k];
+    if (s > bs) { bs = s; best = a; }
+  }
+  return best;
+}
+function rotated(c, deg) {
+  const o = newCanvas(c.width, c.height), x = o.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.fillRect(0, 0, o.width, o.height);
+  x.translate(o.width / 2, o.height / 2);
+  x.rotate(-deg * Math.PI / 180);
+  x.drawImage(c, -c.width / 2, -c.height / 2);
+  return o;
+}
+function stretch(g) {
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < g.length; i++) hist[g[i]]++;
+  const cut = g.length * 0.01;
+  let lo = 0, hi = 255, acc = 0;
+  for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > cut) { lo = i; break; } }
+  acc = 0;
+  for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > cut) { hi = i; break; } }
+  if (hi - lo < 20) return;
+  const k = 255 / (hi - lo);
+  for (let i = 0; i < g.length; i++) { const v = (g[i] - lo) * k; g[i] = v < 0 ? 0 : v > 255 ? 255 : v; }
+}
+function adaptive(g, w, h) {
+  const r = Math.max(12, Math.round(Math.max(w, h) / 80)), C = 10;
+  const W = w + 1, I = new Float64Array(W * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) { row += g[y * w + x]; I[(y + 1) * W + x + 1] = I[y * W + x + 1] + row; }
+  }
+  const out = new Uint8ClampedArray(g.length);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1);
+      const sum = I[y1 * W + x1] - I[y0 * W + x1] - I[y1 * W + x0] + I[y0 * W + x0];
+      const mean = sum / ((x1 - x0) * (y1 - y0));
+      out[y * w + x] = g[y * w + x] < mean - C ? 0 : 255;
+    }
+  }
+  return out;
+}
+let crop = null;
+function applyCrop(src) {
+  if (!crop) return src;
+  const x = Math.round(crop.x * src.width), y = Math.round(crop.y * src.height);
+  const w = Math.max(1, Math.round(crop.w * src.width)), h = Math.max(1, Math.round(crop.h * src.height));
+  const c = newCanvas(w, h);
+  c.getContext('2d', { willReadFrequently: true }).drawImage(src, x, y, w, h, 0, 0, w, h);
+  return c;
+}
+function free(c) { if (c) { c.width = 0; c.height = 0; } }
+
+/* ---------- OCR ইঞ্জিন ---------- */
+const BN = {
+  'loading tesseract core': 'ইঞ্জিন লোড হচ্ছে...',
+  'initializing tesseract': 'ইঞ্জিন চালু হচ্ছে...',
+  'loading language traineddata': 'ভাষা ডেটা নামছে (প্রথমবার সময় লাগবে)...',
+  'initializing api': 'প্রস্তুত হচ্ছে...'
+};
+async function getWorker() {
+  const lang = $('#lang').value, q = $('#quality').value, key = lang + '|' + q;
+  if (!worker || workerKey !== key) {
+    if (worker) { await worker.terminate(); worker = null; }
+    worker = await Tesseract.createWorker(lang, 1, { langPath: LANGPATH[q], logger: m => onLog(m) });
+    workerKey = key;
+  }
+  await worker.setParameters({
+    tessedit_pageseg_mode: $('#psm').value,
+    preserve_interword_spaces: '1',
+    user_defined_dpi: '300',
+    tessedit_char_blacklist: ($('#nolatin').checked && lang === 'ben') ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' : ''
+  });
+  return worker;
+}
+async function recognize(w, canvas, name) {
+  const { data } = await w.recognize(canvas);
+  return { text: (data.text || '').trim(), conf: data.confidence || 0, name };
+}
+async function ocrCanvas(src) {
+  const w = await getWorker();
+  const mode = $('#mode').value;
+  const cropped = applyCrop(src);
+  let base = scaled(cropped);
+  if (cropped !== src) free(cropped);
+  if ($('#deskew').checked) {
+    const ang = findSkew(grayOf(base), base.width, base.height);
+    if (Math.abs(ang) > 0.2) { const r = rotated(base, ang); free(base); base = r; }
+  }
+  const W = base.width, H = base.height;
+  let result;
+  if (mode === 'none') {
+    result = await recognize(w, base, 'আসল');
+  } else {
+    const g = grayOf(base); stretch(g);
+    const wantClean = mode === 'clean' || mode === 'auto';
+    let r1 = null;
+    if (wantClean) {
+      const cc = canvasOfGray(g, W, H);
+      r1 = await recognize(w, cc, 'কন্ট্রাস্ট'); free(cc);
+    }
+    if (mode === 'binary' || (mode === 'auto' && r1.conf < 85 && !cancel)) {
+      const bc = canvasOfGray(adaptive(g, W, H), W, H);
+      const r2 = await recognize(w, bc, 'থ্রেশহোল্ড'); free(bc);
+      result = (!r1 || r2.conf > r1.conf) ? r2 : r1;
+    } else result = r1;
+  }
+  free(base);
+  return result;
+}
+
+/* ---------- কার্ড UI ---------- */
+function makeCard(name) {
+  const d = document.createElement('div');
+  d.className = 'card';
+  d.innerHTML = '<div class="head"><span class="name"></span><span class="st">অপেক্ষায়...</span></div>' +
+    '<div class="bar"><i></i></div><textarea placeholder="ফলাফল এখানে আসবে..."></textarea>' +
+    '<div class="acts"><button class="sec cp">কপি</button><button class="sec dl">.txt সেভ</button><button class="sec ai">AI দিয়ে বানান শুধরান</button></div>' +
+    '<div class="fixbox hide"><label style="margin-top:10px">শুধরানো ফলাফল (AI)</label><textarea class="fix"></textarea>' +
+    '<div class="acts"><button class="sec cp2">কপি</button><button class="sec dl2">.txt সেভ</button></div></div>';
+  d.querySelector('.name').textContent = name;
+  const ta = d.querySelector('textarea');
+  d.querySelector('.cp').onclick = async e => {
+    try { await navigator.clipboard.writeText(ta.value); } catch (_) { ta.select(); document.execCommand('copy'); }
+    e.target.textContent = 'কপি হয়েছে ✔'; setTimeout(() => e.target.textContent = 'কপি', 1500);
+  };
+  d.querySelector('.dl').onclick = () => download(name.replace(/\.[^.]+$/, '') + '.txt', new Blob(['\ufeff' + ta.value], { type: 'text/plain;charset=utf-8' }));
+  const fx = d.querySelector('textarea.fix');
+  d.querySelector('.cp2').onclick = async e => {
+    try { await navigator.clipboard.writeText(fx.value); } catch (_) { fx.select(); document.execCommand('copy'); }
+    e.target.textContent = 'কপি হয়েছে ✔'; setTimeout(() => e.target.textContent = 'কপি', 1500);
+  };
+  d.querySelector('.dl2').onclick = () => download(name.replace(/\.[^.]+$/, '') + '-শুধরানো.txt', new Blob(['\ufeff' + fx.value], { type: 'text/plain;charset=utf-8' }));
+  d.querySelector('.ai').onclick = e => aiFix(d, e.target);
+  $('#results').appendChild(d);
+  return { st: d.querySelector('.st'), bar: d.querySelector('.bar i'), ta };
+}
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+async function processFile(file) {
+  const c = makeCard(file.name);
+  const parts = [], confs = [];
+  let total = 1, done = 0;
+  onLog = m => {
+    if (BN[m.status]) c.st.textContent = BN[m.status];
+    else if (m.status === 'recognizing text') {
+      c.st.textContent = (total > 1 ? 'পৃষ্ঠা ' + (done + 1) + '/' + total + ' – ' : '') + 'লেখা পড়া হচ্ছে ' + Math.round(m.progress * 100) + '%';
+      c.bar.style.width = ((done + m.progress) / total * 100) + '%';
+    }
+  };
+  const add = r => {
+    done++; confs.push(r.conf);
+    parts.push(total > 1 ? '===== পৃষ্ঠা ' + done + ' =====\n' + r.text : r.text);
+    c.ta.value = parts.join('\n\n');
+    c.bar.style.width = (done / total * 100) + '%';
+  };
+  try {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+      if (!window.pdfjsLib) throw new Error('PDF লাইব্রেরি লোড হয়নি (ইন্টারনেট দেখুন)');
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      total = pdf.numPages;
+      const scale = Math.min(450, Math.max(150, +$('#dpi').value || 300)) / 72;
+      for (let p = 1; p <= total && !cancel; p++) {
+        c.st.textContent = 'পৃষ্ঠা ' + p + '/' + total + ' তৈরি হচ্ছে...';
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale });
+        const cv = newCanvas(Math.round(vp.width), Math.round(vp.height));
+        const cx = cv.getContext('2d', { willReadFrequently: true });
+        cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+        await page.render({ canvasContext: cx, viewport: vp }).promise;
+        add(await ocrCanvas(cv));
+        free(cv);
+      }
+    } else {
+      const bmp = await createImageBitmap(file);
+      const cv = newCanvas(bmp.width, bmp.height);
+      cv.getContext('2d').drawImage(bmp, 0, 0);
+      add(await ocrCanvas(cv));
+      free(cv);
+    }
+    const avg = confs.reduce((a, b) => a + b, 0) / (confs.length || 1);
+    c.st.textContent = (cancel ? 'বন্ধ করা হয়েছে' : 'সম্পন্ন ✔') + ' – গড় কনফিডেন্স ' + Math.round(avg) + '%';
+    c.st.classList.add(cancel ? 'err' : 'ok');
+    c.bar.style.width = '100%';
+  } catch (e) {
+    c.st.textContent = 'ব্যর্থ: ' + (e && e.message ? e.message : e) + ' (ইন্টারনেট ও ভাষা ডেটা দেখুন, দরকারে "দ্রুত" মডেল দিন)';
+    c.st.classList.add('err');
+  }
+}
+
+$('#go').onclick = async () => {
+  if (!window.Tesseract) { alert('Tesseract লাইব্রেরি লোড হয়নি। ইন্টারনেট সংযোগ দেখে পেজ রিফ্রেশ করুন।'); return; }
+  cancel = false;
+  $('#go').disabled = true; $('#stop').disabled = false; $('#stop').classList.remove('hide');
+  $('#results').innerHTML = '';
+  for (const f of files) { if (cancel) break; await processFile(f); }
+  $('#go').disabled = false; $('#stop').classList.add('hide');
+  $('#all').classList.remove('hide');
+};
+
+/* ---------- Ollama দিয়ে বানান শুধরানো ---------- */
+const AI_PROMPT = 'তুমি একজন বাংলা প্রুফরিডার। নিচের লেখাটি OCR থেকে এসেছে এবং এতে অক্ষরের ভুল আছে। শুধু স্পষ্ট OCR ভুল ঠিক করো: ভুল পড়া অক্ষর, বাদ পড়া চন্দ্রবিন্দু বা হসন্ত, যুক্তাক্ষরের ভুল, এবং মাঝখানে ঢুকে যাওয়া ইংরেজি বা অদ্ভুত চিহ্ন।\n' +
+  'নিয়ম: ১) কোনো শব্দ যোগ বা বাদ দেবে না। ২) প্রতিটি লাইন আলাদা রাখবে, লাইনের সংখ্যা একই থাকবে। ৩) পুরনো বা কাব্যিক বানান (যেমন কবহুঁ, যৈছন, দীঘ) বদলাবে না। ৪) শুধু শুধরানো লেখাটি দাও, কোনো ব্যাখ্যা বা মন্তব্য নয়।\n\nলেখা:\n';
+async function aiFix(card, btn) {
+  const base = ($('#ollamaUrl').value || 'http://localhost:11434').replace(/\/$/, '');
+  const model = $('#ollamaModel').value.trim();
+  const ta = card.querySelector('textarea:not(.fix)'), fx = card.querySelector('textarea.fix'), box = card.querySelector('.fixbox');
+  if (!model) { alert('"AI দিয়ে বানান শুধরানো" অংশে Ollama মডেলের নাম দিন (যেমন qwen2.5:7b)।'); return; }
+  if (!ta.value.trim()) return;
+  const chunks = []; let cur = [], len = 0;
+  for (const l of ta.value.split('\n')) {
+    if (len + l.length > 1200 && cur.length) { chunks.push(cur.join('\n')); cur = []; len = 0; }
+    cur.push(l); len += l.length + 1;
+  }
+  if (cur.length) chunks.push(cur.join('\n'));
+  btn.disabled = true; box.classList.remove('hide'); fx.value = '';
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      btn.textContent = 'শুধরানো হচ্ছে ' + (i + 1) + '/' + chunks.length + '...';
+      const res = await fetch(base + '/api/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: AI_PROMPT + chunks[i], stream: false, options: { temperature: 0 } })
+      });
+      if (!res.ok) throw new Error('Ollama উত্তর দেয়নি (' + res.status + ')');
+      const data = await res.json();
+      const out = (data.response || '').replace(/^```[a-z]*\n?|```$/g, '').trim();
+      fx.value += (fx.value ? '\n' : '') + out;
+    }
+    btn.textContent = 'আবার শুধরান';
+  } catch (e) {
+    fx.value = 'ব্যর্থ: ' + e.message + '\n(Ollama চালু আছে কিনা এবং OLLAMA_ORIGINS=* সেট আছে কিনা দেখুন)';
+    btn.textContent = 'AI দিয়ে বানান শুধরান';
+  }
+  btn.disabled = false;
+}
+fetch(($('#ollamaUrl').value || 'http://localhost:11434').replace(/\/$/, '') + '/api/tags').then(r => r.json()).then(d => {
+  $('#olist').innerHTML = (d.models || []).map(m => '<option value="' + m.name + '">').join('');
+}).catch(() => {});
+
+/* ---------- একসাথে ডাউনলোড ---------- */
+function collect() {
+  return [...document.querySelectorAll('#results .card')].map(d => ({
+    name: d.querySelector('.name').textContent,
+    text: d.querySelector('textarea').value
+  }));
+}
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+$('#allTxt').onclick = () => {
+  const t = collect().map(x => '##### ' + x.name + ' #####\n' + x.text).join('\n\n');
+  download('ocr_result.txt', new Blob(['\ufeff' + t], { type: 'text/plain;charset=utf-8' }));
+};
+$('#allDoc').onclick = () => {
+  const body = collect().map((x, i, a) =>
+    (a.length > 1 ? '<h2>' + esc(x.name) + '</h2>' : '') +
+    x.text.split('\n').map(l => '<p>' + (esc(l) || '&nbsp;') + '</p>').join('') +
+    (i < a.length - 1 ? '<br clear="all" style="page-break-before:always">' : '')).join('');
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">' +
+    '<head><meta charset="utf-8"><style>body{font-family:"Nirmala UI",Vrinda,Kalpurush,Arial;font-size:13pt}p{margin:0 0 6pt}</style></head><body>' + body + '</body></html>';
+  download('ocr_result.doc', new Blob(['\ufeff', html], { type: 'application/msword' }));
+};
+</script>
+</body>
+</html>
